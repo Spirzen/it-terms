@@ -14,10 +14,11 @@ export async function loadGlossaryPages(contentDir) {
   }
   const introPath = path.join(dir, 'intro.md');
   const intro = fs.existsSync(introPath) ? await buildGlossaryPage(introPath, {isIntro: true}) : null;
+  const letters = [...pages].sort((a, b) => a.slug.localeCompare(b.slug, 'ru'));
   return {
     intro,
-    letters: pages.sort((a, b) => a.label.localeCompare(b.label, 'ru')),
-    sidebar: buildSidebar(intro, pages),
+    letters,
+    sidebar: buildSidebar(intro, letters),
   };
 }
 

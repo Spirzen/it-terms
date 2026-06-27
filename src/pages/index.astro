@@ -1,3 +1,9 @@
 ---
-return Astro.redirect('/glossary/intro');
+import RedirectLayout from '@/components/RedirectLayout.astro';
 ---
+
+<RedirectLayout
+  to="/glossary/intro"
+  title="Глоссарий IT"
+  label="Переход в глоссарий…"
+/>

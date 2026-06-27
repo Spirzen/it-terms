@@ -1,0 +1,85 @@
+---
+import path from 'node:path';
+import {findRepoRoot} from '@/lib/ecosystem.mjs';
+import {loadGlossaryPages} from '@/lib/glossary/load-glossary.mjs';
+import {getPortalContext} from '@/lib/portal.mjs';
+import PortalLayout from '@/components/PortalLayout.astro';
+import PortalSidebar from '@/components/PortalSidebar.astro';
+
+export async function getStaticPaths() {
+  const contentDir = path.join(findRepoRoot(), 'content/glossary');
+  const glossary = await loadGlossaryPages(contentDir);
+  const paths = [];
+  if (glossary.intro) {
+    paths.push({
+      params: {slug: 'intro'},
+      props: {page: glossary.intro, sidebar: glossary.sidebar, kind: 'intro'},
+    });
+  }
+  for (const letter of glossary.letters) {
+    paths.push({
+      params: {slug: letter.slug},
+      props: {page: letter, sidebar: glossary.sidebar, kind: 'letter'},
+    });
+  }
+  return paths;
+}
+
+const {page, sidebar, kind} = Astro.props;
+const {navItems, brandHref, brandLabel, ecosystemConfigJson} = getPortalContext();
+const sidebarItems = sidebar.map((item) => ({...item, active: item.slug === page.slug}));
+---
+
+<PortalLayout
+  title={`${page.title} — Глоссарий IT Universe`}
+  description={page.description || 'Справочник терминов Вселенная IT'}
+  brandLabel={brandLabel}
+  brandHref={brandHref}
+  navItems={navItems}
+  hasSidebar={true}
+  ecosystemConfigJson={ecosystemConfigJson}
+>
+  <PortalSidebar slot="sidebar" title="Алфавит" items={sidebarItems} />
+
+  <header class="portal-hero">
+    <h1>{page.title}</h1>
+    {page.description ? <p>{page.description}</p> : null}
+  </header>
+
+  {
+    kind === 'intro' ? (
+      <article class="article-body" set:html={page.introHtml} />
+    ) : (
+      <>
+        {page.terms.length > 0 ? (
+          <nav aria-label="Термины на странице">
+            <ul class="term-toc">
+              {page.terms.map((term) => (
+                <li>
+                  <a href={`#${term.anchor}`}>{term.title}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
+        {page.introHtml ? <article class="article-body" set:html={page.introHtml} /> : null}
+        <div class="term-index">
+          {page.terms.map((term) => (
+            <section class="term-entry" id={term.anchor}>
+              <h2>
+                <a href={`#${term.anchor}`}>{term.title}</a>
+              </h2>
+              <article class="article-body" set:html={term.html} />
+            </section>
+          ))}
+        </div>
+      </>
+    )
+  }
+
+  <footer class="portal-footer">
+    <p>
+      Часть экосистемы <a href={navItems.find((n) => n.id === 'spirzen')?.href}>Вселенная IT</a>.
+    </p>
+  </footer>
+</PortalLayout>

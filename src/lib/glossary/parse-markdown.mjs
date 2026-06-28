@@ -40,7 +40,7 @@ function stripDocusaurusArtifacts(content) {
   let body = content;
   body = body.replace(/import\s+[\s\S]*?from\s+['"]@theme\/[^'"]+['"];?\s*/g, '');
   body = body.replace(/import\s+[\s\S]*?from\s+['"]@site\/[^'"]+['"];?\s*/g, '');
-  body = body.replace(/<DocCardList\s*\/>/g, '');
+  body = body.replace(/<DocCardList\s*\/>/g, '<!-- DOC_CARD_LIST -->');
   body = body.replace(/<[A-Z][A-Za-z0-9]*[^>]*\/>/g, '');
 
   const lines = body.split(/\r?\n/);

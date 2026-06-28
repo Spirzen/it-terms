@@ -1,0 +1,258 @@
+---
+interface Props {
+  termCount?: number;
+  letterCount?: number;
+}
+
+const {termCount = 0, letterCount = 0} = Astro.props;
+---
+
+<section class="glossary-search" aria-label="Поиск по глоссарию">
+  <div class="glossary-search__panel">
+    <label class="glossary-search__label" for="glossary-search-input">
+      <span class="glossary-search__icon" aria-hidden="true">⌕</span>
+      <span class="sr-only">Поиск термина</span>
+      <input
+        id="glossary-search-input"
+        class="glossary-search__input"
+        type="search"
+        name="q"
+        placeholder="Найти термин: API, Docker, нейросеть…"
+        autocomplete="off"
+        spellcheck="false"
+        enterkeyhint="search"
+      />
+    </label>
+    <p class="glossary-search__hint" id="glossary-search-hint">
+      {termCount > 0 ? (
+        <>
+          {termCount.toLocaleString('ru-RU')} терминов в {letterCount} разделах — введите слово или аббревиатуру
+        </>
+      ) : (
+        <>Введите слово или аббревиатуру</>
+      )}
+    </p>
+    <div class="glossary-search__status sr-only" id="glossary-search-status" role="status" aria-live="polite"></div>
+    <ul class="glossary-search__results" id="glossary-search-results" hidden></ul>
+  </div>
+</section>
+
+<script>
+  const input = document.getElementById('glossary-search-input');
+  const results = document.getElementById('glossary-search-results');
+  const status = document.getElementById('glossary-search-status');
+  const hint = document.getElementById('glossary-search-hint');
+
+  if (input instanceof HTMLInputElement && results instanceof HTMLUListElement && status) {
+    /** @type {Array<{ t: string, l: string, a: string, s: string }> | null} */
+    let index = null;
+    let loadPromise = null;
+    let activeIndex = -1;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function highlightMatch(text, query) {
+      const lower = text.toLowerCase();
+      const start = lower.indexOf(query);
+      if (start < 0) {
+        return escapeHtml(text);
+      }
+      const end = start + query.length;
+      return (
+        escapeHtml(text.slice(0, start)) +
+        `<mark>${escapeHtml(text.slice(start, end))}</mark>` +
+        escapeHtml(text.slice(end))
+      );
+    }
+
+    let indexFailed = false;
+
+    function indexUrl() {
+      return new URL(`${import.meta.env.BASE_URL}glossary/search-index.json`, window.location.origin).href;
+    }
+
+    async function ensureIndex() {
+      if (index) {
+        return index;
+      }
+      if (!loadPromise) {
+        loadPromise = fetch(indexUrl())
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`search index unavailable (${response.status})`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            index = Array.isArray(data) ? data : [];
+            indexFailed = index.length === 0;
+            return index;
+          })
+          .catch((error) => {
+            console.error('glossary search index:', error);
+            index = [];
+            indexFailed = true;
+            return index;
+          });
+      }
+      return loadPromise;
+    }
+
+    function scoreEntry(entry, query) {
+      const title = entry.t.toLowerCase();
+      if (title === query) {
+        return 0;
+      }
+      if (title.startsWith(query)) {
+        return 1;
+      }
+      if (title.includes(query)) {
+        return 2;
+      }
+      if (entry.s.toLowerCase().includes(query)) {
+        return 3;
+      }
+      return 99;
+    }
+
+    function renderResults(matches, query) {
+      if (indexFailed) {
+        results.innerHTML =
+          '<li class="glossary-search__empty">Не удалось загрузить индекс терминов. Обновите страницу или попробуйте позже.</li>';
+        results.hidden = false;
+        status.textContent = 'Индекс недоступен';
+        activeIndex = -1;
+        return;
+      }
+
+      if (matches.length === 0) {
+        results.innerHTML =
+          '<li class="glossary-search__empty">Ничего не найдено — попробуйте другое написание или латиницу.</li>';
+        results.hidden = false;
+        status.textContent = 'Ничего не найдено';
+        activeIndex = -1;
+        return;
+      }
+
+      const limited = matches.slice(0, 12);
+      results.innerHTML = limited
+        .map((entry, itemIndex) => {
+          const href = `${import.meta.env.BASE_URL}glossary/${encodeURIComponent(entry.l)}#${entry.a}`;
+          return (
+            `<li>` +
+            `<a class="glossary-search__result" href="${href}" data-index="${itemIndex}">` +
+            `<span class="glossary-search__result-head">` +
+            `<span class="glossary-search__letter">${escapeHtml(entry.l)}</span>` +
+            `<span class="glossary-search__term">${highlightMatch(entry.t, query)}</span>` +
+            `</span>` +
+            (entry.s ? `<span class="glossary-search__snippet">${escapeHtml(entry.s)}</span>` : '') +
+            `</a>` +
+            `</li>`
+          );
+        })
+        .join('');
+      results.hidden = false;
+      status.textContent = `Найдено: ${matches.length}`;
+      activeIndex = -1;
+    }
+
+    function clearResults() {
+      results.hidden = true;
+      results.innerHTML = '';
+      status.textContent = '';
+      activeIndex = -1;
+    }
+
+    async function runSearch() {
+      const query = input.value.trim().toLowerCase();
+      if (query.length < 2) {
+        clearResults();
+        if (hint) {
+          hint.hidden = false;
+        }
+        return;
+      }
+
+      const data = await ensureIndex();
+      if (hint) {
+        hint.hidden = true;
+      }
+
+      const matches = data
+        .map((entry) => ({entry, score: scoreEntry(entry, query)}))
+        .filter(({score}) => score < 99)
+        .sort((left, right) => {
+          if (left.score !== right.score) {
+            return left.score - right.score;
+          }
+          return left.entry.t.localeCompare(right.entry.t, 'ru');
+        })
+        .map(({entry}) => entry);
+
+      renderResults(matches, query);
+    }
+
+    function moveActive(delta) {
+      const links = results.querySelectorAll('.glossary-search__result');
+      if (!links.length || results.hidden) {
+        return;
+      }
+      activeIndex = (activeIndex + delta + links.length) % links.length;
+      links.forEach((link, itemIndex) => {
+        link.classList.toggle('is-active', itemIndex === activeIndex);
+      });
+      const active = links[activeIndex];
+      if (active instanceof HTMLElement) {
+        active.scrollIntoView({block: 'nearest'});
+      }
+    }
+
+    input.addEventListener('input', () => {
+      void runSearch();
+    });
+
+    input.addEventListener('focus', () => {
+      void ensureIndex();
+      if (input.value.trim().length >= 2) {
+        void runSearch();
+      }
+    });
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveActive(1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveActive(-1);
+      } else if (event.key === 'Enter' && activeIndex >= 0) {
+        const active = results.querySelectorAll('.glossary-search__result')[activeIndex];
+        if (active instanceof HTMLAnchorElement) {
+          event.preventDefault();
+          active.click();
+        }
+      } else if (event.key === 'Escape') {
+        clearResults();
+        input.blur();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+      if (!event.target.closest('.glossary-search')) {
+        clearResults();
+        if (hint && input.value.trim().length < 2) {
+          hint.hidden = false;
+        }
+      }
+    });
+  }
+</script>

@@ -1,32 +1,33 @@
 {
-  "name": "it-terms",
-  "version": "0.1.0",
-  "description": "Глоссарий «Вселенная IT» — terms.spirzen.ru",
-  "license": "MIT",
-  "type": "module",
-  "author": "Тагиров Тимур Владиславович",
-  "homepage": "https://terms.spirzen.ru",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Spirzen/it-terms.git"
-  },
-  "scripts": {
-    "dev": "astro dev --port 4330",
-    "build": "astro build",
-    "preview": "astro preview --port 4330",
-    "sync:glossary": "node scripts/sync-glossary.mjs"
-  },
-  "dependencies": {
-    "astro": "^5.10.0",
-    "gray-matter": "^4.0.3",
-    "remark": "^15.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-html": "^16.0.1"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3"
-  },
-  "engines": {
-    "node": ">=20.0.0"
-  }
+    "name":  "it-terms",
+    "version":  "0.1.0",
+    "description":  "Глоссарий «Вселенная IT» — terms.spirzen.ru",
+    "license":  "MIT",
+    "type":  "module",
+    "author":  "Тагиров Тимур Владиславович",
+    "homepage":  "https://terms.spirzen.ru",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/Spirzen/it-terms.git"
+                   },
+    "scripts":  {
+                    "dev":  "astro dev --port 4330",
+                    "build":  "astro build",
+                    "preview":  "astro preview --port 4330",
+                    "sync:glossary":  "node scripts/sync-glossary.mjs"
+                },
+    "dependencies":  {
+                         "astro":  "^5.10.0",
+                         "gray-matter":  "^4.0.3",
+                         "remark":  "^15.0.1",
+                         "remark-gfm":  "^4.0.1",
+                         "remark-html":  "^16.0.1",
+                         "@astrojs/sitemap":  "^3.4.1"
+                     },
+    "devDependencies":  {
+                            "typescript":  "^5.9.3"
+                        },
+    "engines":  {
+                    "node":  "\u003e=20.0.0"
+                }
 }
